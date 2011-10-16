@@ -6,7 +6,7 @@ libekvs_ccflags = ['-std=c89','-Werror','-pedantic']
 
 libekvs = env.StaticLibrary('ekvs',
    ekvs_files,
-   CPPPATH = ['.'],
+   CPPPATH = ['.'] + env['EKVS_INCLUDE'],
    CCFLAGS = libekvs_ccflags + env['CCFLAGS'],
    LIBS=[], 
    LIBPATH=[]

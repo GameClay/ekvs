@@ -46,7 +46,8 @@ typedef struct _ekvs_db* ekvs;
 #define EKVS_OK               0x00 /**< Operation successful */
 #define EKVS_FAIL             0x10 /**< Operation failed due to a non-specific error */
 #define EKVS_ALLOCATION_FAIL  0x11 /**< Operation failed due to a memory allocation error */
-#define EKVS_FILE_FAIL        0x12 /**< Operation fialed due to a file i/o error */
+#define EKVS_FILE_FAIL        0x12 /**< Operation failed due to a file i/o error */
+#define EKVS_NO_KEY           0x13 /**< Operation failed because the key did not exist */
 
 extern EKVS_API int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts);
 

@@ -1,0 +1,10 @@
+Import('env')
+
+ekvs_test = env.Program('ekvs_test',
+   Glob('*.c', strings=True),
+   CPPPATH = ['.'] + env['EKVS_INCLUDE'],
+   CCFLAGS = env['CCFLAGS'],
+   LIBS=['ekvs'], 
+   LIBPATH=env['EKVS_LIB']
+)
+Return('ekvs_test')

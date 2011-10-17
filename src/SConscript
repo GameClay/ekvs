@@ -2,12 +2,10 @@ Import('env')
 
 ekvs_files = Glob('*.c', strings=True)
 
-libekvs_ccflags = ['-std=c89','-Werror','-pedantic']
-
 libekvs = env.StaticLibrary('ekvs',
    ekvs_files,
    CPPPATH = ['.'] + env['EKVS_INCLUDE'],
-   CCFLAGS = libekvs_ccflags + env['CCFLAGS'],
+   CCFLAGS = env['CCFLAGS'],
    LIBS=[], 
    LIBPATH=[]
 )

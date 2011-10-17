@@ -42,17 +42,33 @@ int _ekvs_replay_binlog_entry(ekvs store, char operation, const struct _ekvs_db_
 int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const void* data, size_t data_sz)
 {
    FILE* binlog = store->db_file;
-   size_t key_size = strlen(key);
+   size_t temp;
+   struct _ekvs_db_entry entry;
+   long int binlog_end = store->serialized.binlog_end;
+   entry.flags = flags;
+   entry.key_sz = strlen(key);
+   entry.data_sz = data_sz;
 
-   fseek(binlog, store->serialized.binlog_end, SEEK_SET);
-   fwrite(&operation, sizeof(operation), 1, binlog);
-   fwrite(&flags, sizeof(flags), 1, binlog);
-   fwrite(&key_size, sizeof(key_size), 1, binlog);
-   fwrite(&data_sz, sizeof(data_sz), 1, binlog);
-   fwrite(key, sizeof(char), key_size, binlog);
-   fwrite(data, sizeof(char), data_sz, binlog);
+   /* Write binlog entry */
+   if(fseek(binlog, binlog_end, SEEK_SET) != 0) goto _ekvs_binlog_fail;
+   if(fwrite(&operation, sizeof(operation), 1, binlog) != 1) goto _ekvs_binlog_fail;
+   if(fwrite(&entry, sizeof(entry) - 1, 1, binlog) != 1) goto _ekvs_binlog_fail;
+   if(fwrite(key, 1, entry.key_sz, binlog) != entry.key_sz) goto _ekvs_binlog_fail;
+   if(fwrite(data, 1, entry.data_sz, binlog) != entry.data_sz) goto _ekvs_binlog_fail;
+
+   /* Write new binlog end */
    store->serialized.binlog_end = ftell(binlog);
-   fflush(binlog);
+   if(store->serialized.binlog_end == -1L) goto _ekvs_binlog_fail;
+   if(fseek(binlog, 0, SEEK_SET) != 0) goto _ekvs_binlog_fail;
+   if(fwrite(&store->serialized, sizeof(store->serialized), 1, binlog) != 1) goto _ekvs_binlog_fail;
+
+   /* Flush to disk */
+   if(fflush(binlog) != 0) goto _ekvs_binlog_fail;
 
    return EKVS_OK;
+
+_ekvs_binlog_fail:
+   /* Rollback, and return file error */
+   store->serialized.binlog_end = binlog_end;
+   return EKVS_FILE_FAIL;
 }

@@ -180,6 +180,68 @@ void ekvs_close(ekvs store)
    }
 }
 
+int ekvs_snapshot(ekvs store, const char* snapshot_to)
+{
+   uint64_t i;
+   uint64_t table_sz = store->serialized.table_sz;
+   FILE* dbfile;
+   struct _ekvs_db_entry* entry;
+   char* tmp_fname = NULL;
+   size_t key_data_sz;
+   struct _ekvs_db_serialized new_serialized;
+
+   /* Create a temporary file */
+   if(snapshot_to == NULL)
+   {
+      tmp_fname = ekvs_malloc(strlen(store->db_fname) + 6);
+      sprintf(tmp_fname, "%s.lock", store->db_fname);
+      dbfile = fopen(tmp_fname, "wb+"); /* TODO: fopen_s? */
+   }
+   else
+   {
+      dbfile = fopen(snapshot_to, "wb+"); /* TODO: fopen_s? */
+   }
+   
+   /* Leave room for the serialized blob, then write out the table */
+   if(fseek(dbfile, sizeof(struct _ekvs_db_serialized), SEEK_SET) != 0) goto ekvs_snapshot_err;
+   for(i = 0; i < table_sz; i++)
+   {
+      entry = store->table[i];
+      if(entry == NULL) continue;
+
+      key_data_sz = entry->key_sz + entry->data_sz;
+      if(fwrite(entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile) != 1) goto ekvs_snapshot_err;
+      if(fwrite(entry->key_data, 1, key_data_sz, dbfile) != key_data_sz) goto ekvs_snapshot_err;
+   }
+   /* Now write serialization blob */
+   new_serialized.table_sz = table_sz;
+   new_serialized.binlog_start = new_serialized.binlog_end = ftell(dbfile);
+   if(new_serialized.binlog_end == -1L) goto ekvs_snapshot_err;
+   if(fseek(dbfile, 0, SEEK_SET) != 0) goto ekvs_snapshot_err;
+   if(fwrite(&new_serialized, sizeof(new_serialized), 1, dbfile) != 1) goto ekvs_snapshot_err;
+
+   /* Close temporary file, rename */
+   fclose(dbfile);
+   if(snapshot_to == NULL)
+   {
+      fclose(store->db_file);
+      remove(store->db_fname);
+      rename(tmp_fname, store->db_fname);
+      store->db_file = fopen(store->db_fname, "rb+");
+   }
+   ekvs_free(tmp_fname);
+
+   store->last_error = EKVS_OK;
+   return EKVS_OK;
+
+ekvs_snapshot_err:
+   ekvs_free(tmp_fname);
+   fclose(dbfile);
+   remove(tmp_fname);
+   store->last_error = EKVS_FILE_FAIL;
+   return EKVS_FILE_FAIL;
+}
+
 int ekvs_last_error(ekvs store)
 {
    return store->last_error;

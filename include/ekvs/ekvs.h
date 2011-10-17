@@ -53,6 +53,8 @@ extern EKVS_API int ekvs_open(ekvs* store, const char* path, const ekvs_opts* op
 
 extern EKVS_API void ekvs_close(ekvs store);
 
+extern EKVS_API int ekvs_snapshot(ekvs store, const char* snapshot_to);
+
 extern EKVS_API int ekvs_last_error(ekvs store);
 
 extern EKVS_API int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz);

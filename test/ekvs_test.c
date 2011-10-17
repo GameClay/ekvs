@@ -12,6 +12,7 @@ int main()
    ekvs_set(mystore, "face?", test_str, strlen(test_str) + 1);
    ekvs_get(mystore, "face?", (const void**)&get_str, &get_str_sz);
    printf("Got back: '%s'\n", get_str);
+   ekvs_snapshot(mystore, NULL);
    ekvs_close(mystore);
    return 0;
 }

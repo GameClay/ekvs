@@ -3,7 +3,7 @@ Import('env')
 ekvs_test = env.Program('ekvs_test',
    Glob('*.c', strings=True),
    CPPPATH = ['.'] + env['EKVS_INCLUDE'],
-   CCFLAGS = env['CCFLAGS'],
+   CCFLAGS = env['CCFLAGS'] + ['-std=c99'],
    LIBS=['ekvs'], 
    LIBPATH=env['EKVS_LIB']
 )

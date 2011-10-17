@@ -47,6 +47,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    db = *store;
 
    /* If a cache file is specified, open it */
+   db->db_fname = NULL;
    if(path != NULL)
    {
       dbfile = fopen(path, "rb+");
@@ -61,6 +62,8 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
             return EKVS_FILE_FAIL;
          }
       }
+      db->db_fname = ekvs_malloc(strlen(path) + 1);
+      strcpy(db->db_fname, path);
    }
    db->db_file = dbfile;
 
@@ -83,8 +86,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       }
 
       /* No binlog yet */
-      db->serialized.binlog_start = sizeof(struct _ekvs_db_serialized);
-      db->serialized.binlog_end = sizeof(struct _ekvs_db_serialized);
+      db->serialized.binlog_start = db->serialized.binlog_end = sizeof(struct _ekvs_db_serialized);
 
       /* Serialize initial DB settings */
       fwrite(&db->serialized, sizeof(db->serialized), 1, dbfile);
@@ -117,13 +119,11 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       {
          fread(&entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile);
 
-         /* Allocate enough space for the entry.
-            The char[1] provides the space for NULL terminator on the key */
-         new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz);
+         /* Allocate enough space for the entry. */
+         new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
          memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry));
-         fread(&new_entry->key_data, 1, entry.key_sz, dbfile);
-         new_entry->key_data[entry.key_sz] = '\0';
-         fread(&new_entry->key_data + entry.key_sz + 1, 1, entry.data_sz, dbfile);
+         fread(new_entry->key_data, 1, entry.key_sz, dbfile);
+         fread(&new_entry->key_data[entry.key_sz], 1, entry.data_sz, dbfile);
          filepos = ftell(dbfile);
 
          /* Assign to table */
@@ -142,11 +142,9 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
          fread(&operation, sizeof(operation), 1, dbfile);
          fread(&entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile);
 
-         new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz);
+         new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
          memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry));
-         fread(&new_entry->key_data, 1, entry.key_sz, dbfile);
-         new_entry->key_data[entry.key_sz] = '\0';
-         fread(&new_entry->key_data + entry.key_sz + 1, 1, entry.data_sz, dbfile);
+         fread(new_entry->key_data, 1, entry.key_sz + entry.data_sz, dbfile);
          filepos = ftell(dbfile);
 
          /* Replay */
@@ -175,6 +173,7 @@ void ekvs_close(ekvs store)
       {
          if(store->table[i] != NULL) ekvs_free(store->table[i]);
       }
+      ekvs_free(store->db_fname);
       ekvs_free(store->table);
       fclose(store->db_file);
       ekvs_free(store);
@@ -207,8 +206,8 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
       new_entry->flags = 0;
       new_entry->key_sz = key_sz;
       new_entry->data_sz = data_sz;
-      strcpy(new_entry->key_data, key);
-      memcpy(&new_entry->key_data[key_sz + 1], data, data_sz);
+      memcpy(new_entry->key_data, key, key_sz);
+      memcpy(&new_entry->key_data[key_sz], data, data_sz);
 
       if(store->binlog_enabled)
       {
@@ -237,7 +236,7 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
    }
    else
    {
-      *data = &entry->key_data[entry->key_sz + 1];
+      *data = &entry->key_data[entry->key_sz];
       *data_sz = entry->data_sz;
       store->last_error = EKVS_OK;
    }

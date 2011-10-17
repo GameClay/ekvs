@@ -37,6 +37,7 @@ struct _ekvs_db {
    int last_error;
    int binlog_enabled;
    FILE* db_file;
+   char* db_fname;
    struct _ekvs_db_entry** table;
 
    struct _ekvs_db_serialized serialized;

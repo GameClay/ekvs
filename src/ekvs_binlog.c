@@ -21,20 +21,26 @@
 int _ekvs_replay_binlog_entry(ekvs store, char operation, const struct _ekvs_db_entry* entry)
 {
    int ret = EKVS_OK;
+   char* key = ekvs_malloc(entry->key_sz + 1);
+   memcpy(key, entry->key_data, entry->key_sz);
+   key[entry->key_sz] = '\0';
+
    switch(operation)
    {
       case EKVS_BINLOG_SET:
       {
-         const void* data = &entry->key_data[entry->key_sz + 1];
-         ret = ekvs_set(store, entry->key_data, data, entry->data_sz);
+         const void* data = &entry->key_data[entry->key_sz];
+         ret = ekvs_set(store, key, data, entry->data_sz);
          break;
       }
       case EKVS_BINLOG_DEL:
       {
-         ret = ekvs_del(store, entry->key_data);
+         ret = ekvs_del(store, key);
          break;
       }
    }
+
+   ekvs_free(key);
 
    return ret;
 }
@@ -56,9 +62,13 @@ int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const 
    if(fwrite(key, 1, entry.key_sz, binlog) != entry.key_sz) goto _ekvs_binlog_fail;
    if(fwrite(data, 1, entry.data_sz, binlog) != entry.data_sz) goto _ekvs_binlog_fail;
 
-   /* Write new binlog end */
+   /* Update binlog end */
    store->serialized.binlog_end = ftell(binlog);
    if(store->serialized.binlog_end == -1L) goto _ekvs_binlog_fail;
+
+   /* TODO: Check size of binlog to see if we should write a snapshot */
+
+   /* Write new binlog end */
    if(fseek(binlog, 0, SEEK_SET) != 0) goto _ekvs_binlog_fail;
    if(fwrite(&store->serialized, sizeof(store->serialized), 1, binlog) != 1) goto _ekvs_binlog_fail;
 

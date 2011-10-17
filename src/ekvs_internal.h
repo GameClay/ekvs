@@ -18,6 +18,7 @@
 
 #include <ekvs/ekvs.h>
 #include <stdio.h>
+#include <string.h>
 
 struct _ekvs_db_entry {
    char flags;
@@ -26,23 +27,18 @@ struct _ekvs_db_entry {
    char key_data[1];
 };
 
+struct _ekvs_db_serialized {
+   uint64_t table_sz;
+   long int binlog_start;
+   long int binlog_end;
+};
+
 struct _ekvs_db {
    int last_error;
    FILE* db_file;
-   struct _ekvs_db_entry* table;
-   
-   struct {
-      uint64_t table_sz;
-      size_t binlog_start;
-   } serialized;
-};
+   struct _ekvs_db_entry** table;
 
-struct _kevs_binlog_entry {
-   char operation;
-   char flags;
-   size_t key_sz;
-   size_t data_sz;
-   char key_data[1];
+   struct _ekvs_db_serialized serialized;
 };
 
 /* From lookup3 */
@@ -54,3 +50,10 @@ extern void hashlittle2(
 
 #define EKVS_BINLOG_SET 0
 #define EKVS_BINLOG_DEL 1
+
+int _ekvs_replay_binlog_entry(ekvs store, char operation, const struct _ekvs_db_entry* entry);
+int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const void* data, size_t data_sz);
+
+extern ekvs_malloc_ptr ekvs_malloc;
+extern ekvs_realloc_ptr ekvs_realloc;
+extern ekvs_free_ptr ekvs_free;

@@ -17,16 +17,15 @@
  */
 
 #include "ekvs_internal.h"
-#include <string.h>
 
-int _ekvs_replay_binlog_entry(ekvs store, struct _kevs_binlog_entry* entry)
+int _ekvs_replay_binlog_entry(ekvs store, char operation, const struct _ekvs_db_entry* entry)
 {
    int ret = EKVS_OK;
-   switch(entry->operation)
+   switch(operation)
    {
       case EKVS_BINLOG_SET:
       {
-         void* data = &entry->key_data[entry->key_sz + 1];
+         const void* data = &entry->key_data[entry->key_sz + 1];
          ret = ekvs_set(store, entry->key_data, data, entry->data_sz);
          break;
       }
@@ -43,15 +42,17 @@ int _ekvs_replay_binlog_entry(ekvs store, struct _kevs_binlog_entry* entry)
 int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const void* data, size_t data_sz)
 {
    FILE* binlog = store->db_file;
-   size_t key_size = strlen(key) + 1;
+   size_t key_size = strlen(key);
 
-   fseek(binlog, 0, SEEK_END);
+   fseek(binlog, store->serialized.binlog_end, SEEK_SET);
    fwrite(&operation, sizeof(operation), 1, binlog);
    fwrite(&flags, sizeof(flags), 1, binlog);
    fwrite(&key_size, sizeof(key_size), 1, binlog);
    fwrite(&data_sz, sizeof(data_sz), 1, binlog);
    fwrite(key, sizeof(char), key_size, binlog);
    fwrite(data, sizeof(char), data_sz, binlog);
+   store->serialized.binlog_end = ftell(binlog);
+   fflush(binlog);
 
    return EKVS_OK;
 }

@@ -18,9 +18,26 @@
 
 #include "ekvs_internal.h"
 
+ekvs_malloc_ptr ekvs_malloc = malloc;
+ekvs_realloc_ptr ekvs_realloc = realloc;
+ekvs_free_ptr ekvs_free = free;
+
 int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
 {
-   *store = malloc(sizeof(struct _ekvs_db));
+   /* Check for user-specified allocators */
+   if(opts->user_malloc != NULL || opts->user_realloc != NULL || opts->user_free != NULL)
+   {
+      if(opts->user_malloc == NULL || opts->user_realloc == NULL || opts->user_free == NULL)
+      {
+         fprintf(stderr, "ekvs: Specifying one user-allocation function requires specifying all allocation functions.\n");
+         return EKVS_FAIL;
+      }
+      ekvs_malloc = opts->user_malloc;
+      ekvs_realloc = opts->user_realloc;
+      ekvs_free = opts->user_free;
+   }
+
+   *store = ekvs_malloc(sizeof(struct _ekvs_db));
    if(*store == NULL)
    {
       return EKVS_ALLOCATION_FAIL;
@@ -41,7 +58,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
 
             if(dbfile == NULL)
             {
-               free(*store);
+               ekvs_free(*store);
                return EKVS_FILE_FAIL;
             }
          }
@@ -75,7 +92,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       if(db->table == NULL)
       {
          fclose(dbfile);
-         free(*store);
+         ekvs_free(*store);
          return EKVS_ALLOCATION_FAIL;
       }
 
@@ -95,7 +112,17 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
 
 void ekvs_close(ekvs store)
 {
-   if(store != NULL) free(store);
+   if(store != NULL)
+   {
+      uint64_t i;
+      for(i = 0; i < store->serialized.table_sz; i++)
+      {
+         if(store->table[i] != NULL) ekvs_free(store->table[i]);
+      }
+      ekvs_free(store->table);
+      fclose(store->db_file);
+      ekvs_free(store);
+   }
 }
 
 int ekvs_last_error(ekvs store)

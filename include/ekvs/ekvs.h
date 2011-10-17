@@ -26,19 +26,27 @@
 #  define EKVS_API
 #endif
 
+typedef void* (*ekvs_malloc_ptr)(size_t size);
+typedef void* (*ekvs_realloc_ptr)(void* ptr, size_t size);
+typedef void (*ekvs_free_ptr)(void* ptr);
+
 /**
  * Options for operation and initialization of the ekvs database
  */
 typedef struct ekvs_opts ekvs_opts;
 struct ekvs_opts {
    uint64_t initial_table_size;  /**< Initial table size for new, or in-memory databases. If 0, the value EKVS_INITIAL_TABLE_SIZE will be used. */
+   ekvs_malloc_ptr user_malloc;  /**< Pointer to a malloc function. Specify NULL to use standard malloc. */
+   ekvs_realloc_ptr user_realloc;/**< Pointer to a realloc function. Specify NULL to use standard realloc. */
+   ekvs_free_ptr user_free;      /**< Pointer to a free function. Specify NULL to use standard free. */
 };
 
 typedef struct _ekvs_db* ekvs;
 
 #define EKVS_OK               0x00 /**< Operation successful */
-#define EKVS_ALLOCATION_FAIL  0x10 /**< Operation failed due to a memory allocation error */
-#define EKVS_FILE_FAIL        0x11 /**< Operation fialed due to a file i/o error */
+#define EKVS_FAIL             0x10 /**< Operation failed due to a non-specific error */
+#define EKVS_ALLOCATION_FAIL  0x11 /**< Operation failed due to a memory allocation error */
+#define EKVS_FILE_FAIL        0x12 /**< Operation fialed due to a file i/o error */
 
 extern EKVS_API int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts);
 

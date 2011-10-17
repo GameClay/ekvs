@@ -39,6 +39,7 @@ struct _ekvs_db {
    FILE* db_file;
    char* db_fname;
    struct _ekvs_db_entry** table;
+   uint64_t table_population;
 
    struct _ekvs_db_serialized serialized;
 };

@@ -101,7 +101,10 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       ekvs_free(*store);
       return EKVS_ALLOCATION_FAIL;
    }
+
+   /* Initialize table to NULL, and set population to 0 */
    memset(db->table, 0, sizeof(struct _ekvs_db_entry*) * db->serialized.table_sz);
+   db->table_population = 0;
 
    /* Load up the table */
    {
@@ -126,11 +129,12 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
          fread(&new_entry->key_data[entry.key_sz], 1, entry.data_sz, dbfile);
          filepos = ftell(dbfile);
 
-         /* Assign to table */
+         /* Assign to table, and increment population */
          pc = pb = 0;
          hashlittle2(new_entry->key_data, entry.key_sz, &pc, &pb);
          hash = pc + (((uint64_t)pb) << 32);
          db->table[hash % (*store)->serialized.table_sz] = new_entry;
+         db->table_population++;
       }
 
       /* Read/replay the binlog */
@@ -253,10 +257,12 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
    uint32_t pc = 0, pb = 0;
    struct _ekvs_db_entry* new_entry = NULL;
    size_t key_sz = strlen(key);
+   int was_previous_entry = 0;
    
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
    new_entry = store->table[hash % store->serialized.table_sz];
+   if(new_entry != NULL) was_previous_entry = 1;
    new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + key_sz + data_sz);
    if(new_entry == NULL)
    {
@@ -264,6 +270,9 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
    }
    else
    {
+      if(was_previous_entry == 0) store->table_population++;
+      /* TODO: If population > certain percentage of table size (75%?), grow table */
+      
       store->table[hash % store->serialized.table_sz] = new_entry;
       new_entry->flags = 0;
       new_entry->key_sz = key_sz;

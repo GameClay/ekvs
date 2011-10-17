@@ -13,6 +13,10 @@ int main()
    ekvs_get(mystore, "face?", (const void**)&get_str, &get_str_sz);
    printf("Got back: '%s'\n", get_str);
    ekvs_snapshot(mystore, NULL);
+   ekvs_del(mystore, "face?");
+   get_str = NULL;
+   ekvs_get(mystore, "face?", (const void**)&get_str, &get_str_sz);
+   printf("Got back: '%s'\n", get_str);
    ekvs_close(mystore);
    return 0;
 }

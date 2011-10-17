@@ -317,5 +317,31 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
 
 int ekvs_del(ekvs store, const char* key)
 {
+   struct _ekvs_db_entry* entry = NULL;
+   uint64_t hash;
+   uint32_t pc = 0, pb = 0;
+   hashlittle2(key, strlen(key), &pc, &pb);
+   hash = pc + (((uint64_t)pb) << 32);
+   entry = store->table[hash % store->serialized.table_sz];
+   if(entry == NULL)
+   {
+      store->last_error = EKVS_NO_KEY;
+   }
+   else
+   {
+      ekvs_free(entry);
+      store->table[hash % store->serialized.table_sz] = NULL;
+      store->table_population--;
+
+      if(store->binlog_enabled)
+      {
+         store->last_error = _ekvs_binlog(store, EKVS_BINLOG_DEL, 0 /* flags */, key, NULL, 0);
+      }
+      else
+      {
+         store->last_error = EKVS_OK;
+      }
+   }
    
+   return store->last_error;
 }

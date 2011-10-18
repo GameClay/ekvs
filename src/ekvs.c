@@ -303,7 +303,7 @@ ekvs_grow_table_err:
 
 int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
 {
-   uint64_t hash;
+   uint64_t hash, old_hash;
    uint32_t pc = 0, pb = 0;
    struct _ekvs_db_entry* new_entry = NULL;
    size_t key_sz = strlen(key);
@@ -312,7 +312,15 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
    new_entry = store->table[hash % store->serialized.table_sz];
-   if(new_entry != NULL) was_previous_entry = 1;
+   if(new_entry != NULL)
+   {
+      was_previous_entry = 1;
+      if(strncmp(key, new_entry->key_data, new_entry->key_sz) != 0)
+      {
+         /* Collision */
+         printf("Collision occured! Badness!\n");
+      }
+   }
    new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + key_sz + data_sz);
    if(new_entry == NULL)
    {

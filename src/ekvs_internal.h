@@ -40,6 +40,7 @@ struct _ekvs_db {
    char* db_fname;
    struct _ekvs_db_entry** table;
    uint64_t table_population;
+   float grow_threshold;
 
    struct _ekvs_db_serialized serialized;
 };

@@ -67,6 +67,16 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    }
    db->db_file = dbfile;
 
+   /* Assign some of the opts */
+   if(opts == NULL || opts->grow_threshold == 0.0f)
+   {
+      db->grow_threshold = EKVS_GROW_THRESHOLD;
+   }
+   else
+   {
+      db->grow_threshold = opts->grow_threshold;
+   }
+
    /* Read in the serialized attributes of the db */
    fseek(dbfile, 0, SEEK_SET);
    if(dbfile != NULL && file_created == 0)
@@ -253,6 +263,44 @@ int ekvs_last_error(ekvs store)
    return store->last_error;
 }
 
+int ekvs_grow_table(ekvs store, size_t new_sz)
+{
+   struct _ekvs_db_entry* entry;
+   uint64_t hash;
+   uint32_t pc, pb;
+   uint64_t i, old_table_sz = store->serialized.table_sz;
+   struct _ekvs_db_entry** new_table = ekvs_malloc(sizeof(struct _ekvs_db_entry*) * new_sz);
+
+   if(new_table == NULL) return EKVS_ALLOCATION_FAIL;
+   memset(new_table, 0, sizeof(struct _ekvs_db_entry*) * new_sz);
+
+   for(i = 0; i < old_table_sz; i++)
+   {
+      entry = store->table[i];
+      if(entry == NULL) continue;
+
+      pc = pb = 0;
+      hashlittle2(entry->key_data, entry->key_sz, &pc, &pb);
+      hash = pc + (((uint64_t)pb) << 32);
+      new_table[hash % new_sz] = entry;
+   }
+
+   /* Update and serialize */
+   store->serialized.table_sz = new_sz;
+   if(fseek(store->db_file, 0, SEEK_SET) != 0) goto ekvs_grow_table_err;
+   if(fwrite(&store->serialized, sizeof(store->serialized), 1, store->db_file) != 1) goto ekvs_grow_table_err;
+   if(fflush(store->db_file) != 0) goto ekvs_grow_table_err;
+
+   ekvs_free(store->table);
+   store->table = new_table;
+   return EKVS_OK;
+
+ekvs_grow_table_err:
+   ekvs_free(new_table);
+   store->serialized.table_sz = old_table_sz;
+   return EKVS_FILE_FAIL;
+}
+
 int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
 {
    uint64_t hash;
@@ -272,8 +320,17 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
    }
    else
    {
-      if(was_previous_entry == 0) store->table_population++;
-      /* TODO: If population > certain percentage of table size (75%?), grow table */
+      if(was_previous_entry == 0)
+      {
+         float table_saturation;
+         store->table_population++;
+         table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+         if(table_saturation > store->grow_threshold)
+         {
+            /* TODO: Double table size reasonable? */
+            ekvs_grow_table(store, store->serialized.table_sz * 2);
+         }
+      }
       
       store->table[hash % store->serialized.table_sz] = new_entry;
       new_entry->flags = 0;

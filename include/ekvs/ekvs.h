@@ -36,6 +36,7 @@ typedef void (*ekvs_free_ptr)(void* ptr);
 typedef struct ekvs_opts ekvs_opts;
 struct ekvs_opts {
    uint64_t initial_table_size;  /**< Initial table size for new, or in-memory databases. If 0, the value EKVS_INITIAL_TABLE_SIZE will be used. */
+   float grow_threshold;         /**< When this percentage of the table has been used, it will automatically grow the table. If 0, the value EKVS_GROW_THRESHOLD will be used. */
    ekvs_malloc_ptr user_malloc;  /**< Pointer to a malloc function. Specify NULL to use standard malloc. */
    ekvs_realloc_ptr user_realloc;/**< Pointer to a realloc function. Specify NULL to use standard realloc. */
    ekvs_free_ptr user_free;      /**< Pointer to a free function. Specify NULL to use standard free. */
@@ -125,5 +126,6 @@ extern EKVS_API int ekvs_del(ekvs store, const char* key);
 /* TODO: lists/sets ala redis? */
 
 #define EKVS_INITIAL_TABLE_SIZE 128
+#define EKVS_GROW_THRESHOLD 0.75f
 
 #endif

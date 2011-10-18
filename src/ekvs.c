@@ -217,12 +217,14 @@ int ekvs_snapshot(ekvs store, const char* snapshot_to)
       if(fwrite(entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile) != 1) goto ekvs_snapshot_err;
       if(fwrite(entry->key_data, 1, key_data_sz, dbfile) != key_data_sz) goto ekvs_snapshot_err;
    }
+
    /* Now write serialization blob */
    new_serialized.table_sz = table_sz;
    new_serialized.binlog_start = new_serialized.binlog_end = ftell(dbfile);
    if(new_serialized.binlog_end == -1L) goto ekvs_snapshot_err;
    if(fseek(dbfile, 0, SEEK_SET) != 0) goto ekvs_snapshot_err;
-   if(fwrite(&new_serialized, sizeof(new_serialized), 1, dbfile) != 1) goto ekvs_snapshot_err;
+   if(fwrite(&new_serialized, sizeof(struct _ekvs_db_serialized), 1, dbfile) != 1) goto ekvs_snapshot_err;
+   memcpy(&store->serialized, &new_serialized, sizeof(struct _ekvs_db_serialized));
 
    /* Close temporary file, rename */
    fclose(dbfile);

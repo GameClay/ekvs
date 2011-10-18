@@ -362,6 +362,8 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
    entry = store->table[hash % store->serialized.table_sz];
    if(entry == NULL)
    {
+      *data = NULL;
+      *data_sz = 0;
       store->last_error = EKVS_NO_KEY;
    }
    else

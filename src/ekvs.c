@@ -120,6 +120,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    {
       struct _ekvs_db_entry entry;
       struct _ekvs_db_entry* new_entry;
+      struct _ekvs_db_entry* cur_entry;
       long int binlog_start = db->serialized.binlog_start;
       long int binlog_end = db->serialized.binlog_end;
       long int filepos = ftell(dbfile);
@@ -127,10 +128,12 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       uint32_t pc, pb;
       char operation;
 
+      entry.chain = NULL;
+
       /* Read the snapshot */
       while(filepos < binlog_start && !feof(dbfile))
       {
-         fread(&entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile);
+         fread(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile);
 
          /* Allocate enough space for the entry. */
          new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
@@ -143,7 +146,19 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
          pc = pb = 0;
          hashlittle2(new_entry->key_data, entry.key_sz, &pc, &pb);
          hash = pc + (((uint64_t)pb) << 32);
-         db->table[hash % (*store)->serialized.table_sz] = new_entry;
+         cur_entry = db->table[hash % (*store)->serialized.table_sz];
+         if(cur_entry == NULL) 
+         {
+            db->table[hash % (*store)->serialized.table_sz] = new_entry;
+         }
+         else
+         {
+            while(cur_entry->chain != NULL)
+            {
+               cur_entry = cur_entry->chain;
+            }
+            cur_entry->chain = new_entry;
+         }
          db->table_population++;
       }
 
@@ -154,7 +169,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       while(binlog_start != binlog_end && filepos < binlog_end)
       {
          fread(&operation, sizeof(operation), 1, dbfile);
-         fread(&entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile);
+         fread(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile);
 
          new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
          memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry));
@@ -221,11 +236,13 @@ int ekvs_snapshot(ekvs store, const char* snapshot_to)
    for(i = 0; i < table_sz; i++)
    {
       entry = store->table[i];
-      if(entry == NULL) continue;
-
-      key_data_sz = entry->key_sz + entry->data_sz;
-      if(fwrite(entry, sizeof(struct _ekvs_db_entry) - 1, 1, dbfile) != 1) goto ekvs_snapshot_err;
-      if(fwrite(entry->key_data, 1, key_data_sz, dbfile) != key_data_sz) goto ekvs_snapshot_err;
+      while(entry != NULL)
+      {
+         key_data_sz = entry->key_sz + entry->data_sz;
+         if(fwrite(&entry->flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile) != 1) goto ekvs_snapshot_err;
+         if(fwrite(entry->key_data, 1, key_data_sz, dbfile) != key_data_sz) goto ekvs_snapshot_err;
+         entry = entry->chain;
+      }
    }
 
    /* Now write serialization blob */
@@ -341,6 +358,7 @@ int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
       }
       
       store->table[hash % store->serialized.table_sz] = new_entry;
+      new_entry->chain = NULL;
       new_entry->flags = 0;
       new_entry->key_sz = key_sz;
       new_entry->data_sz = data_sz;

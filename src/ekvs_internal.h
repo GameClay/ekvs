@@ -21,6 +21,7 @@
 #include <string.h>
 
 struct _ekvs_db_entry {
+   struct _ekvs_db_entry* chain;
    char flags;
    size_t key_sz;
    size_t data_sz;

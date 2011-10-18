@@ -58,7 +58,7 @@ int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const 
    /* Write binlog entry */
    if(fseek(binlog, binlog_end, SEEK_SET) != 0) goto _ekvs_binlog_fail;
    if(fwrite(&operation, sizeof(operation), 1, binlog) != 1) goto _ekvs_binlog_fail;
-   if(fwrite(&entry, sizeof(struct _ekvs_db_entry) - 1, 1, binlog) != 1) goto _ekvs_binlog_fail;
+   if(fwrite(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, binlog) != 1) goto _ekvs_binlog_fail;
    if(fwrite(key, 1, entry.key_sz, binlog) != entry.key_sz) goto _ekvs_binlog_fail;
    if(fwrite(data, 1, entry.data_sz, binlog) != entry.data_sz) goto _ekvs_binlog_fail;
 

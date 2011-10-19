@@ -206,9 +206,17 @@ void ekvs_close(ekvs store)
    if(store != NULL)
    {
       uint64_t i;
+      struct _ekvs_db_entry* cur_entry;
+      struct _ekvs_db_entry* del_entry;
       for(i = 0; i < store->serialized.table_sz; i++)
       {
-         if(store->table[i] != NULL) ekvs_free(store->table[i]);
+         cur_entry = store->table[i];
+         while(cur_entry != NULL)
+         {
+            del_entry = cur_entry;
+            cur_entry = cur_entry->chain;
+            ekvs_free(del_entry);
+         }
       }
       ekvs_free(store->db_fname);
       ekvs_free(store->table);
@@ -296,6 +304,7 @@ int ekvs_last_error(ekvs store)
 int ekvs_grow_table(ekvs store, size_t new_sz)
 {
    struct _ekvs_db_entry* entry;
+   struct _ekvs_db_entry* cur_entry;
    uint64_t hash;
    uint32_t pc, pb;
    uint64_t i, old_table_sz = store->serialized.table_sz;
@@ -307,12 +316,29 @@ int ekvs_grow_table(ekvs store, size_t new_sz)
    for(i = 0; i < old_table_sz; i++)
    {
       entry = store->table[i];
-      if(entry == NULL) continue;
-
-      pc = pb = 0;
-      hashlittle2(entry->key_data, entry->key_sz, &pc, &pb);
-      hash = pc + (((uint64_t)pb) << 32);
-      new_table[hash % new_sz] = entry;
+      while(entry != NULL)
+      {
+         pc = pb = 0;
+         hashlittle2(entry->key_data, entry->key_sz, &pc, &pb);
+         hash = pc + (((uint64_t)pb) << 32);
+         
+         cur_entry = new_table[hash % new_sz];
+         if(cur_entry != NULL)
+         {
+            while(cur_entry->chain != NULL)
+            {
+               cur_entry = cur_entry->chain;
+            }
+            cur_entry->chain = entry;
+         }
+         else
+         {
+            new_table[hash % new_sz] = entry;
+         }
+         cur_entry = entry;
+         entry = entry->chain;
+         cur_entry->chain = NULL;
+      }
    }
 
    /* Update and serialize */
@@ -331,61 +357,28 @@ ekvs_grow_table_err:
    return EKVS_FILE_FAIL;
 }
 
-int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
+int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, char flags)
 {
    uint64_t hash, old_hash;
    uint32_t pc = 0, pb = 0;
    struct _ekvs_db_entry* new_entry = NULL;
    size_t key_sz = strlen(key);
-   int was_previous_entry = 0;
    
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
-   new_entry = store->table[hash % store->serialized.table_sz];
-   if(new_entry != NULL)
-   {
-      was_previous_entry = 1;
-      if(strncmp(key, new_entry->key_data, new_entry->key_sz) != 0)
-      {
-         /* Collision */
-         printf("Collision occured! Badness!\n");
-      }
-   }
-   new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + key_sz + data_sz);
+
+   new_entry = _ekvs_insert(store, hash, key, data, key_sz, data_sz, flags);
    if(new_entry == NULL)
    {
       store->last_error = EKVS_ALLOCATION_FAIL;
    }
+   else if(store->binlog_enabled)
+   {
+      store->last_error = _ekvs_binlog(store, EKVS_BINLOG_SET, 0 /* flags */, key, data, data_sz);
+   }
    else
    {
-      if(was_previous_entry == 0)
-      {
-         float table_saturation;
-         store->table_population++;
-         table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
-         if(table_saturation > store->grow_threshold)
-         {
-            /* TODO: Double table size reasonable? */
-            ekvs_grow_table(store, store->serialized.table_sz * 2);
-         }
-      }
-      
-      store->table[hash % store->serialized.table_sz] = new_entry;
-      new_entry->chain = NULL;
-      new_entry->flags = 0;
-      new_entry->key_sz = key_sz;
-      new_entry->data_sz = data_sz;
-      memcpy(new_entry->key_data, key, key_sz);
-      memcpy(&new_entry->key_data[key_sz], data, data_sz);
-
-      if(store->binlog_enabled)
-      {
-         store->last_error = _ekvs_binlog(store, EKVS_BINLOG_SET, 0 /* flags */, key, data, data_sz);
-      }
-      else
-      {
-         store->last_error = EKVS_OK;
-      }
+      store->last_error = EKVS_OK;
    }
 
    return store->last_error;
@@ -396,9 +389,10 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
    struct _ekvs_db_entry* entry = NULL;
    uint64_t hash;
    uint32_t pc = 0, pb = 0;
-   hashlittle2(key, strlen(key), &pc, &pb);
+   size_t key_sz = strlen(key);
+   hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
-   entry = store->table[hash % store->serialized.table_sz];
+   entry = _ekvs_retrieve(store, hash, key, key_sz);
    if(entry == NULL)
    {
       *data = NULL;
@@ -418,9 +412,11 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
 int ekvs_del(ekvs store, const char* key)
 {
    struct _ekvs_db_entry* entry = NULL;
+   struct _ekvs_db_entry* prev_entry = NULL;
    uint64_t hash;
    uint32_t pc = 0, pb = 0;
-   hashlittle2(key, strlen(key), &pc, &pb);
+   size_t key_sz = strlen(key);
+   hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
    entry = store->table[hash % store->serialized.table_sz];
    if(entry == NULL)
@@ -429,8 +425,24 @@ int ekvs_del(ekvs store, const char* key)
    }
    else
    {
+      /* Traverse chain */
+      while(key_sz != entry->key_sz || memcmp(key, entry->key_data, key_sz) != 0)
+      {
+         prev_entry = entry;
+         entry = entry->chain;
+      }
+
+      /* Unlink or remove from table, then deallocate */
+      if(prev_entry != NULL)
+      {
+         prev_entry->chain = entry->chain;
+      }
+      else
+      {
+         store->table[hash % store->serialized.table_sz] = NULL;
+      }
       ekvs_free(entry);
-      store->table[hash % store->serialized.table_sz] = NULL;
+
       store->table_population--;
 
       if(store->binlog_enabled)
@@ -442,6 +454,92 @@ int ekvs_del(ekvs store, const char* key)
          store->last_error = EKVS_OK;
       }
    }
-   
+
    return store->last_error;
+}
+
+/********************** Helpers and debugging aids **********************/
+
+struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, const void* data,
+   size_t key_sz, size_t data_sz, char flags)
+{
+   struct _ekvs_db_entry* cur_entry = NULL;
+   struct _ekvs_db_entry* new_entry = NULL;
+   int test_grow = 0;
+
+   cur_entry = store->table[hash % store->serialized.table_sz];
+   if(cur_entry != NULL)
+   {
+      if(key_sz != cur_entry->key_sz || memcmp(key, cur_entry->key_data, key_sz) != 0)
+      {
+         /* Collision */
+         new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
+         test_grow = 1;
+      }
+      else
+      {
+         new_entry = ekvs_realloc(cur_entry, sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
+         cur_entry = NULL;
+      }
+   }
+   else
+   {
+      new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
+      test_grow = 1;
+   }
+
+   if(new_entry != NULL)
+   {
+      new_entry->chain = NULL;
+      new_entry->flags = 0;
+      new_entry->key_sz = key_sz;
+      new_entry->data_sz = data_sz;
+      memcpy(new_entry->key_data, key, key_sz);
+      memcpy(&new_entry->key_data[key_sz], data, data_sz);
+
+      if(cur_entry != NULL)
+      {
+         while(cur_entry->chain != NULL)
+         {
+            cur_entry = cur_entry->chain;
+         }
+         cur_entry->chain = new_entry;
+      }
+      else
+      {
+         store->table[hash % store->serialized.table_sz] = new_entry;
+      }
+   }
+
+   /* Grow table if needed */
+   if((flags & ekvs_set_no_grow == 0) && test_grow > 0)
+   {
+      float table_saturation;
+      store->table_population++;
+      table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+      while(table_saturation > store->grow_threshold)
+      {
+         /* TODO: Double table size reasonable? */
+         ekvs_grow_table(store, store->serialized.table_sz * 2);
+         table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+      }
+   }
+
+   return new_entry;
+}
+
+struct _ekvs_db_entry* _ekvs_retrieve(ekvs store, uint64_t hash, const char* key, size_t key_sz)
+{
+   struct _ekvs_db_entry* entry = store->table[hash % store->serialized.table_sz];
+
+   if(entry != NULL)
+   {
+      while(key_sz != entry->key_sz || memcmp(key, entry->key_data, key_sz) != 0)
+      {
+         entry = entry->chain;
+         if(entry == NULL) break;
+      }
+   }
+   
+   return entry;
 }

@@ -58,6 +58,9 @@ extern void hashlittle2(
 
 int _ekvs_replay_binlog_entry(ekvs store, char operation, const struct _ekvs_db_entry* entry);
 int _ekvs_binlog(ekvs store, char operation, char flags, const char* key, const void* data, size_t data_sz);
+struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, const void* data,
+   size_t key_sz, size_t data_sz, char flags);
+struct _ekvs_db_entry* _ekvs_retrieve(ekvs store, uint64_t hash, const char* key, size_t key_sz);
 
 extern ekvs_malloc_ptr ekvs_malloc;
 extern ekvs_realloc_ptr ekvs_realloc;

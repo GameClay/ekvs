@@ -35,20 +35,27 @@ typedef void (*ekvs_free_ptr)(void* ptr);
  */
 typedef struct ekvs_opts ekvs_opts;
 struct ekvs_opts {
-   uint64_t initial_table_size;  /**< Initial table size for new, or in-memory databases. If 0, the value EKVS_INITIAL_TABLE_SIZE will be used. */
-   float grow_threshold;         /**< When this percentage of the table has been used, it will automatically grow the table. If 0, the value EKVS_GROW_THRESHOLD will be used. */
-   ekvs_malloc_ptr user_malloc;  /**< Pointer to a malloc function. Specify NULL to use standard malloc. */
-   ekvs_realloc_ptr user_realloc;/**< Pointer to a realloc function. Specify NULL to use standard realloc. */
-   ekvs_free_ptr user_free;      /**< Pointer to a free function. Specify NULL to use standard free. */
+   uint64_t initial_table_size;     /**< Initial table size for new, or in-memory databases. If 0, the value EKVS_INITIAL_TABLE_SIZE will be used. */
+   float grow_threshold;            /**< When this percentage of the table has been used, it will automatically grow the table. If 0, the value EKVS_GROW_THRESHOLD will be used. */
+   ekvs_malloc_ptr user_malloc;     /**< Pointer to a malloc function. Specify NULL to use standard malloc. */
+   ekvs_realloc_ptr user_realloc;   /**< Pointer to a realloc function. Specify NULL to use standard realloc. */
+   ekvs_free_ptr user_free;         /**< Pointer to a free function. Specify NULL to use standard free. */
 };
 
 typedef struct _ekvs_db* ekvs;
 
-#define EKVS_OK               0x00 /**< Operation successful */
-#define EKVS_FAIL             0x10 /**< Operation failed due to a non-specific error */
-#define EKVS_ALLOCATION_FAIL  0x11 /**< Operation failed due to a memory allocation error */
-#define EKVS_FILE_FAIL        0x12 /**< Operation failed due to a file i/o error */
-#define EKVS_NO_KEY           0x13 /**< Operation failed because the key did not exist */
+#define EKVS_OK               0x00  /**< Operation successful */
+#define EKVS_FAIL             0x10  /**< Operation failed due to a non-specific error */
+#define EKVS_ALLOCATION_FAIL  0x11  /**< Operation failed due to a memory allocation error */
+#define EKVS_FILE_FAIL        0x12  /**< Operation failed due to a file i/o error */
+#define EKVS_NO_KEY           0x13  /**< Operation failed because the key did not exist */
+
+/**
+ * Flags that change the behavior for setting a key using ekvs_set_ex
+ */
+typedef enum {
+   ekvs_set_no_grow     = 1 << 0    /**< Do not grow the table if the grow threshold has been exceeded as a result of this set. */
+} ekvs_set_flags;
 
 /**
  * Open an ekvs database.
@@ -95,10 +102,28 @@ extern EKVS_API int ekvs_last_error(ekvs store);
  * @param key[in]       The key to which the data should be assigned.
  * @param data[in]      The data to assign to the key.
  * @param data_sz[in]   The size of the data being assigned.
+ * @param flags[in]     Flags to use while assigning the value. @see ekvs_set_flags
  *
  * @return EKVS_OK if successful, or an error code otherwise.
  */
-extern EKVS_API int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz);
+extern EKVS_API int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, char flags);
+
+/**
+ * Set a key to a value.
+ *
+ * Assigns the specified data to a key, and writes an entry in the binlog.
+ *
+ * @param store[in]     The ekvs database to modify.
+ * @param key[in]       The key to which the data should be assigned.
+ * @param data[in]      The data to assign to the key.
+ * @param data_sz[in]   The size of the data being assigned.
+ *
+ * @return EKVS_OK if successful, or an error code otherwise.
+ */
+static EKVS_API int ekvs_set(ekvs store, const char* key, const void* data, size_t data_sz)
+{
+   return ekvs_set_ex(store, key, data, data_sz, 0);
+}
 
 /**
  * Retrieve the value associated with a key.

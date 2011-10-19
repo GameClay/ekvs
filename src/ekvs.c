@@ -146,9 +146,8 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
 
          /* Allocate enough space for the entry. */
          new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
-         memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry));
-         fread(new_entry->key_data, 1, entry.key_sz, dbfile);
-         fread(&new_entry->key_data[entry.key_sz], 1, entry.data_sz, dbfile);
+         memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry) - 1);
+         fread(new_entry->key_data, 1, entry.key_sz + entry.data_sz, dbfile);
          filepos = ftell(dbfile);
 
          /* Assign to table, and increment population */

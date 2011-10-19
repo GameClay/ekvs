@@ -65,6 +65,11 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       db->db_fname = ekvs_malloc(strlen(path) + 1);
       strcpy(db->db_fname, path);
    }
+   else
+   {
+      /* Disable binlog */
+      db->binlog_enabled = 0;
+   }
    db->db_file = dbfile;
 
    /* Assign some of the opts */
@@ -78,9 +83,9 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    }
 
    /* Read in the serialized attributes of the db */
-   fseek(dbfile, 0, SEEK_SET);
    if(dbfile != NULL && file_created == 0)
    {
+      fseek(dbfile, 0, SEEK_SET);
       fread(&db->serialized, sizeof(db->serialized), 1, dbfile);
    }
    else
@@ -99,8 +104,11 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       db->serialized.binlog_start = db->serialized.binlog_end = sizeof(struct _ekvs_db_serialized);
 
       /* Serialize initial DB settings */
-      fwrite(&db->serialized, sizeof(db->serialized), 1, dbfile);
-      fflush(dbfile);
+      if(dbfile != NULL)
+      {
+         fwrite(&db->serialized, sizeof(db->serialized), 1, dbfile);
+         fflush(dbfile);
+      }
    }
 
    /* Set up the hash-table */
@@ -117,6 +125,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    db->table_population = 0;
 
    /* Load up the table */
+   if(dbfile != NULL)
    {
       struct _ekvs_db_entry entry;
       struct _ekvs_db_entry* new_entry;
@@ -222,6 +231,11 @@ int ekvs_snapshot(ekvs store, const char* snapshot_to)
    /* Create a temporary file */
    if(snapshot_to == NULL)
    {
+      if(store->db_fname == NULL)
+      {
+         fprintf(stderr, "[ekvs]: db created using in-memory only mode, snapshot requires use of snapshot_to parameter.\n");
+         return EKVS_FILE_FAIL;
+      }
       tmp_fname = ekvs_malloc(strlen(store->db_fname) + 6);
       sprintf(tmp_fname, "%s.lock", store->db_fname);
       dbfile = fopen(tmp_fname, "wb+"); /* TODO: fopen_s? */

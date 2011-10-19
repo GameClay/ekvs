@@ -180,7 +180,7 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
          fread(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile);
 
          new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
-         memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry));
+         memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry) - 1);
          fread(new_entry->key_data, 1, entry.key_sz + entry.data_sz, dbfile);
          filepos = ftell(dbfile);
 

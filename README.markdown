@@ -17,5 +17,6 @@ Each code file has its license located at the top of the file. If any file is mi
 
 ### Authors
 * [Pat Wilson](http://github.com/ZeroStride)
+
 ### Special Thanks
 * [Alex Scarborough](http://github.com/alexsc)

@@ -106,7 +106,7 @@ extern EKVS_API int ekvs_last_error(ekvs store);
  *
  * @return EKVS_OK if successful, or an error code otherwise.
  */
-extern EKVS_API int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, char flags);
+extern EKVS_API int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, uint32_t flags);
 
 /**
  * Set a key to a value.

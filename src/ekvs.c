@@ -366,7 +366,7 @@ ekvs_grow_table_err:
    return EKVS_FILE_FAIL;
 }
 
-int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, char flags)
+int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, uint32_t set_flags)
 {
    uint64_t hash, old_hash;
    uint32_t pc = 0, pb = 0;
@@ -389,7 +389,7 @@ int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, c
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
 
-   new_entry = _ekvs_insert(store, hash, key, data, key_sz, data_sz, flags);
+   new_entry = _ekvs_insert(store, hash, key, data, key_sz, data_sz, set_flags);
    if(new_entry == NULL)
    {
       store->last_error = EKVS_ALLOCATION_FAIL;
@@ -497,7 +497,7 @@ int ekvs_del(ekvs store, const char* key)
 /********************** Helpers and debugging aids **********************/
 
 struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, const void* data,
-   size_t key_sz, size_t data_sz, char flags)
+   size_t key_sz, size_t data_sz, uint32_t set_flags)
 {
    struct _ekvs_db_entry* cur_entry = NULL;
    struct _ekvs_db_entry* new_entry = NULL;
@@ -548,16 +548,18 @@ struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, 
    }
 
    /* Grow table if needed */
-   if((flags & ekvs_set_no_grow == 0) && test_grow > 0)
+   if(test_grow > 0)
    {
-      float table_saturation;
       store->table_population++;
-      table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
-      while(table_saturation > store->grow_threshold)
+      if((set_flags & ekvs_set_no_grow) == 0)
       {
-         /* TODO: Double table size reasonable? */
-         ekvs_grow_table(store, store->serialized.table_sz * 2);
-         table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+         float table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+         while(table_saturation > store->grow_threshold)
+         {
+            /* TODO: Double table size reasonable? */
+            ekvs_grow_table(store, store->serialized.table_sz * 2);
+            table_saturation = (float)store->table_population / (float)store->serialized.table_sz;
+         }
       }
    }
 

@@ -398,7 +398,21 @@ int ekvs_get(ekvs store, const char* key, const void** data, size_t* data_sz)
    struct _ekvs_db_entry* entry = NULL;
    uint64_t hash;
    uint32_t pc = 0, pb = 0;
-   size_t key_sz = strlen(key);
+   size_t key_sz = 0;
+
+   if(store == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL store parameter passed to ekvs_get.\n");
+      return EKVS_FAIL;
+   }
+
+   if(key == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL key parameter passed to ekvs_get.\n");
+      return EKVS_FAIL;
+   }
+
+   key_sz = strlen(key);
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
    entry = _ekvs_retrieve(store, hash, key, key_sz);

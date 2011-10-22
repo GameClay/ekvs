@@ -27,7 +27,13 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
    ekvs db;
    FILE* dbfile = NULL;
    int file_created = 0;
-   
+   /* Check for NULL store */
+   if(store == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL store parameter passed to ekvs_open.\n");
+      return EKVS_FAIL;
+   }
+
    /* Check for user-specified allocators */
    if(opts != NULL && (opts->user_malloc != NULL || opts->user_realloc != NULL || opts->user_free != NULL))
    {

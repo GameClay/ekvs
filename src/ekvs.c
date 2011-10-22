@@ -343,9 +343,12 @@ int ekvs_grow_table(ekvs store, size_t new_sz)
 
    /* Update and serialize */
    store->serialized.table_sz = new_sz;
-   if(fseek(store->db_file, 0, SEEK_SET) != 0) goto ekvs_grow_table_err;
-   if(fwrite(&store->serialized, sizeof(store->serialized), 1, store->db_file) != 1) goto ekvs_grow_table_err;
-   if(fflush(store->db_file) != 0) goto ekvs_grow_table_err;
+   if(store->db_file != NULL)
+   {
+      if(fseek(store->db_file, 0, SEEK_SET) != 0) goto ekvs_grow_table_err;
+      if(fwrite(&store->serialized, sizeof(store->serialized), 1, store->db_file) != 1) goto ekvs_grow_table_err;
+      if(fflush(store->db_file) != 0) goto ekvs_grow_table_err;
+   }
 
    ekvs_free(store->table);
    store->table = new_table;

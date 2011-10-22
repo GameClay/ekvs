@@ -371,8 +371,21 @@ int ekvs_set_ex(ekvs store, const char* key, const void* data, size_t data_sz, c
    uint64_t hash, old_hash;
    uint32_t pc = 0, pb = 0;
    struct _ekvs_db_entry* new_entry = NULL;
-   size_t key_sz = strlen(key);
+   size_t key_sz = 0;
+
+   if(store == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL store parameter passed to ekvs_set_ex.\n");
+      return EKVS_FAIL;
+   }
    
+   if(key == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL key parameter passed to ekvs_set_ex.\n");
+      return EKVS_FAIL;
+   }
+   
+   key_sz = strlen(key);
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
 

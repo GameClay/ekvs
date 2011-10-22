@@ -1,10 +1,15 @@
+import os
+
 Import('env')
+
+env['CSPEC_INCLUDE'] = [os.path.abspath('/Users/pat/Code/cspec/inc')]
+env['CSPEC_LIB'] = [os.path.abspath('/Users/pat/Code/cspec/src')]
 
 ekvs_test = env.Program('ekvs_test',
    Glob('*.c', strings=True),
-   CPPPATH = ['.'] + env['EKVS_INCLUDE'],
+   CPPPATH = ['.'] + env['EKVS_INCLUDE'] + env['CSPEC_INCLUDE'],
    CCFLAGS = env['CCFLAGS'] + ['-std=c99'],
-   LIBS=['ekvs'], 
-   LIBPATH=env['EKVS_LIB']
+   LIBS=['ekvs', 'cspec'], 
+   LIBPATH=env['EKVS_LIB'] + env['CSPEC_LIB']
 )
 Return('ekvs_test')

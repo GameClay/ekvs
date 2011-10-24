@@ -3,6 +3,9 @@ Embeddable key-value store database.
 
 This project was created to address the lack of key-value databases available in C. It was designed to be small, fast, and efficient. 
 
+## Testing
+This uses [CSpec](https://github.com/arnaudbrejeon/cspec) to test.
+
 ## License
 Unless otherwise stated in a file, this project is licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0), the text of which can be found at the previous link, or in the LICENSE file.
 

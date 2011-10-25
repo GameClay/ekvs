@@ -46,6 +46,12 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       ekvs_realloc = opts->user_realloc;
       ekvs_free = opts->user_free;
    }
+   else
+   {
+      ekvs_malloc = malloc;
+      ekvs_realloc = realloc;
+      ekvs_free = free;
+   }
 
    /* Allocate structure */
    *store = ekvs_malloc(sizeof(struct _ekvs_db));

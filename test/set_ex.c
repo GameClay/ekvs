@@ -40,7 +40,7 @@ DESCRIBE(ekvs_set_ex, "int ekvs_set_ex(ekvs store, const char* key, const void* 
       ekvs_close(teststore);
    END_IT
    
-   IT("should the table if the grow threshold is exceeded by adding a key")
+   IT("should grow the table if the grow threshold is exceeded by adding a key")
       ekvs teststore;
       ekvs_opts testopts;
       memset(&testopts, 0, sizeof(ekvs_opts));

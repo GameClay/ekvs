@@ -526,9 +526,17 @@ struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, 
    cur_entry = store->table[hash % store->serialized.table_sz];
    if(cur_entry != NULL)
    {
-      if(key_sz != cur_entry->key_sz || memcmp(key, cur_entry->key_data, key_sz) != 0)
+      struct _ekvs_db_entry* last_entry = NULL;
+      while(cur_entry != NULL && (key_sz != cur_entry->key_sz || memcmp(key, cur_entry->key_data, key_sz) != 0))
+      {
+         last_entry = cur_entry;
+         cur_entry = cur_entry->chain;
+      }
+
+      if(cur_entry == NULL)
       {
          /* Collision */
+         cur_entry = last_entry;
          new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
          test_grow = 1;
       }

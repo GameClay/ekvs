@@ -240,15 +240,23 @@ void ekvs_close(ekvs store)
 int ekvs_snapshot(ekvs store, const char* snapshot_to)
 {
    uint64_t i;
-   uint64_t table_sz = store->serialized.table_sz;
+   uint64_t table_sz = 0;
    FILE* dbfile;
    struct _ekvs_db_entry* entry;
    char* tmp_fname = NULL;
    size_t key_data_sz;
    struct _ekvs_db_serialized new_serialized;
 
+   if(store == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL store parameter passed to ekvs_snapshot.\n");
+      return EKVS_FAIL;
+   }
+
+   table_sz = store->serialized.table_sz;
+
    /* Create a temporary file */
-   if(snapshot_to == NULL)
+   if(snapshot_to == NULL || strcmp(snapshot_to, "") == 0)
    {
       if(store->db_fname == NULL)
       {
@@ -258,10 +266,23 @@ int ekvs_snapshot(ekvs store, const char* snapshot_to)
       tmp_fname = ekvs_malloc(strlen(store->db_fname) + 6);
       sprintf(tmp_fname, "%s.lock", store->db_fname);
       dbfile = fopen(tmp_fname, "wb+"); /* TODO: fopen_s? */
+
+      if(dbfile == NULL)
+      {
+         ekvs_free(tmp_fname);
+         fprintf(stderr, "ekvs: failed to create temporary snapshot file.\n");
+         return EKVS_FILE_FAIL;
+      }
    }
    else
    {
       dbfile = fopen(snapshot_to, "wb+"); /* TODO: fopen_s? */
+
+      if(dbfile == NULL)
+      {
+         fprintf(stderr, "ekvs: failed to create specified snapshot file (%s).\n", snapshot_to);
+         return EKVS_FILE_FAIL;
+      }
    }
    
    /* Leave room for the serialized blob, then write out the table */

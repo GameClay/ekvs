@@ -451,7 +451,21 @@ int ekvs_del(ekvs store, const char* key)
    struct _ekvs_db_entry* prev_entry = NULL;
    uint64_t hash;
    uint32_t pc = 0, pb = 0;
-   size_t key_sz = strlen(key);
+   size_t key_sz = 0;
+
+   if(store == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL store parameter passed to ekvs_del.\n");
+      return EKVS_FAIL;
+   }
+
+   if(key == NULL)
+   {
+      fprintf(stderr, "ekvs: NULL key parameter passed to ekvs_del.\n");
+      return EKVS_FAIL;
+   }
+
+   key_sz = strlen(key);
    hashlittle2(key, key_sz, &pc, &pb);
    hash = pc + (((uint64_t)pb) << 32);
    entry = store->table[hash % store->serialized.table_sz];

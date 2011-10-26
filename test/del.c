@@ -54,4 +54,27 @@ DESCRIBE(ekvs_del, "int ekvs_del(ekvs store, const char* key)")
       SHOULD_MATCH(get_ptr, "value3")
       ekvs_close(teststore);
    END_IT
+   
+   IT("deletes the proper value if chaining has occurred, and a key has been re-assigned")
+      ekvs teststore;
+      const void* get_ptr;
+      size_t get_sz = 0;
+      ekvs_opts testopts;
+      memset(&testopts, 0, sizeof(ekvs_opts));
+      testopts.initial_table_size = 1;
+      ekvs_open(&teststore, NULL, &testopts);
+      ekvs_set_ex(teststore, "key1", "value1", 7, ekvs_set_no_grow);
+      ekvs_set_ex(teststore, "key2", "value2", 7, ekvs_set_no_grow);
+      ekvs_set_ex(teststore, "key3", "value3", 7, ekvs_set_no_grow);
+      ekvs_set_ex(teststore, "key1", "value4", 7, ekvs_set_no_grow);
+      ekvs_set_ex(teststore, "key2", "value5", 7, ekvs_set_no_grow);
+      SHOULD_EQUAL(teststore->serialized.table_sz, 1)
+      SHOULD_EQUAL(ekvs_del(teststore, "key2"), EKVS_OK)
+      SHOULD_EQUAL(ekvs_get(teststore, "key1", &get_ptr, &get_sz), EKVS_OK)
+      SHOULD_MATCH(get_ptr, "value4")
+      SHOULD_EQUAL(ekvs_get(teststore, "key2", &get_ptr, &get_sz), EKVS_NO_KEY)
+      SHOULD_EQUAL(ekvs_get(teststore, "key3", &get_ptr, &get_sz), EKVS_OK)
+      SHOULD_MATCH(get_ptr, "value3")
+      ekvs_close(teststore);
+   END_IT
 END_DESCRIBE

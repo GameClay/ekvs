@@ -516,7 +516,7 @@ int ekvs_del(ekvs store, const char* key)
       }
       else
       {
-         store->table[hash % store->serialized.table_sz] = NULL;
+         store->table[hash % store->serialized.table_sz] = entry->chain;
       }
       ekvs_free(entry);
 

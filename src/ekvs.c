@@ -547,53 +547,46 @@ struct _ekvs_db_entry* _ekvs_insert(ekvs store, uint64_t hash, const char* key, 
    cur_entry = store->table[hash % store->serialized.table_sz];
    if(cur_entry != NULL)
    {
-      struct _ekvs_db_entry* last_entry = NULL;
+      struct _ekvs_db_entry* first_entry = cur_entry;
+      struct _ekvs_db_entry* prev_entry = NULL;
       while(cur_entry != NULL && (key_sz != cur_entry->key_sz || memcmp(key, cur_entry->key_data, key_sz) != 0))
       {
-         last_entry = cur_entry;
+         prev_entry = cur_entry;
          cur_entry = cur_entry->chain;
       }
 
       if(cur_entry == NULL)
       {
          /* Collision */
-         cur_entry = last_entry;
          new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
+         new_entry->chain = first_entry;
          test_grow = 1;
       }
       else
       {
+         int was_first_entry = (first_entry == cur_entry ? 1 : 0);
+         if(prev_entry != NULL) prev_entry->chain = cur_entry->chain;
          new_entry = ekvs_realloc(cur_entry, sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
-         cur_entry = NULL;
+         if(was_first_entry == 0) new_entry->chain = first_entry;
       }
    }
    else
    {
       new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + key_sz + data_sz - 1);
+      new_entry->chain = NULL;
       test_grow = 1;
    }
 
    if(new_entry != NULL)
    {
-      new_entry->chain = NULL;
+      /* Chain assigned above */
       new_entry->flags = 0;
       new_entry->key_sz = key_sz;
       new_entry->data_sz = data_sz;
       memcpy(new_entry->key_data, key, key_sz);
       memcpy(&new_entry->key_data[key_sz], data, data_sz);
 
-      if(cur_entry != NULL)
-      {
-         while(cur_entry->chain != NULL)
-         {
-            cur_entry = cur_entry->chain;
-         }
-         cur_entry->chain = new_entry;
-      }
-      else
-      {
-         store->table[hash % store->serialized.table_sz] = new_entry;
-      }
+      store->table[hash % store->serialized.table_sz] = new_entry;
    }
 
    /* Grow table if needed */

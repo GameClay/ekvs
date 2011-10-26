@@ -24,7 +24,7 @@ DESCRIBE(ekvs_snapshot, "int ekvs_snapshot(ekvs store, const char* snapshot_to)"
       size_t get_sz = 0;
       const char* snapshot_testfile = "snapshot_test";
       memset(&testopts, 0, sizeof(ekvs_opts));
-      testopts.initial_table_size = 55;
+      testopts.initial_table_size = 1;
       ekvs_open(&teststore, NULL, &testopts);
       ekvs_set(teststore, "key1", "value1", 7);
       ekvs_set(teststore, "key2", "value2", 7);
@@ -39,5 +39,6 @@ DESCRIBE(ekvs_snapshot, "int ekvs_snapshot(ekvs store, const char* snapshot_to)"
       SHOULD_EQUAL(ekvs_get(teststore, "key3", &get_ptr, &get_sz), EKVS_OK)
       SHOULD_MATCH(get_ptr, "value3")
       ekvs_close(teststore);
+      remove(snapshot_testfile);
    END_IT
 END_DESCRIBE

@@ -154,7 +154,9 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       /* Read the snapshot */
       while(filepos < binlog_start && !feof(dbfile))
       {
-         fread(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile);
+         fread(&entry.flags, sizeof(entry.flags), 1, dbfile);
+         fread(&entry.key_sz, sizeof(entry.key_sz), 1, dbfile);
+         fread(&entry.data_sz, sizeof(entry.data_sz), 1, dbfile);
 
          /* Allocate enough space for the entry. */
          new_entry = ekvs_malloc(sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
@@ -189,7 +191,9 @@ int ekvs_open(ekvs* store, const char* path, const ekvs_opts* opts)
       while(binlog_start != binlog_end && filepos < binlog_end)
       {
          fread(&operation, sizeof(operation), 1, dbfile);
-         fread(&entry.flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile);
+         fread(&entry.flags, sizeof(entry.flags), 1, dbfile);
+         fread(&entry.key_sz, sizeof(entry.key_sz), 1, dbfile);
+         fread(&entry.data_sz, sizeof(entry.data_sz), 1, dbfile);
 
          new_entry = ekvs_realloc(new_entry, sizeof(struct _ekvs_db_entry) + entry.key_sz + entry.data_sz - 1);
          memcpy(new_entry, &entry, sizeof(struct _ekvs_db_entry) - 1);
@@ -293,7 +297,9 @@ int ekvs_snapshot(ekvs store, const char* snapshot_to)
       while(entry != NULL)
       {
          key_data_sz = entry->key_sz + entry->data_sz;
-         if(fwrite(&entry->flags, sizeof(struct _ekvs_db_entry) - sizeof(struct _ekvs_db_entry*) - 1, 1, dbfile) != 1) goto ekvs_snapshot_err;
+         if(fwrite(&entry->flags, sizeof(entry->flags), 1, dbfile) != 1) goto ekvs_snapshot_err;
+         if(fwrite(&entry->key_sz, sizeof(entry->key_sz), 1, dbfile) != 1) goto ekvs_snapshot_err;
+         if(fwrite(&entry->data_sz, sizeof(entry->data_sz), 1, dbfile) != 1) goto ekvs_snapshot_err;
          if(fwrite(entry->key_data, 1, key_data_sz, dbfile) != key_data_sz) goto ekvs_snapshot_err;
          entry = entry->chain;
       }

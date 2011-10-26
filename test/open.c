@@ -19,6 +19,7 @@ void* test_malloc(size_t size)
 int test_realloc_count = 0;
 void* test_realloc(void* ptr, size_t size)
 {
+   char* ret = NULL;
    test_realloc_count++;
    if(ptr != NULL)
    {
@@ -28,8 +29,7 @@ void* test_realloc(void* ptr, size_t size)
       *((size_t*)fptr) = size;
       return realloc(fptr, size + sizeof(size_t));
    }
-   
-   char* ret = realloc(ptr, size + sizeof(size_t));
+   ret = realloc(ptr, size + sizeof(size_t));
    test_allocation_total += size;
    *((size_t*)ret) = size;
    return (ret + sizeof(size_t));

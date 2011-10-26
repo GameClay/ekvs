@@ -8,7 +8,7 @@ env['CSPEC_LIB'] = [os.path.abspath('/Users/pat/Code/cspec/src')]
 ekvs_test = env.Program('ekvs_test',
    Glob('*.c', strings=True),
    CPPPATH = ['.'] + env['EKVS_INCLUDE'] + env['CSPEC_INCLUDE'],
-   CCFLAGS = env['CCFLAGS'] + ['-std=c99'],
+   CCFLAGS = env['CCFLAGS'],
    LIBS=['ekvs', 'cspec'], 
    LIBPATH=env['EKVS_LIB'] + env['CSPEC_LIB']
 )

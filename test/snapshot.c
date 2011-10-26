@@ -26,19 +26,18 @@ DESCRIBE(ekvs_snapshot, "int ekvs_snapshot(ekvs store, const char* snapshot_to)"
       memset(&testopts, 0, sizeof(ekvs_opts));
       testopts.initial_table_size = 55;
       ekvs_open(&teststore, NULL, &testopts);
-      ekvs_set_ex(teststore, "key", NULL, 0, 0);
-      /*ekvs_set_ex(teststore, "key2", NULL, 0, 0);
-      ekvs_set_ex(teststore, "key3", NULL, 0, 0);*/
+      ekvs_set(teststore, "key1", "value1", 7);
+      ekvs_set(teststore, "key2", "value2", 7);
+      ekvs_set(teststore, "key3", "value3", 7);
       SHOULD_EQUAL(ekvs_snapshot(teststore, snapshot_testfile), EKVS_OK)
       ekvs_close(teststore);
-      /*SHOULD_EQUAL(ekvs_open(&teststore, snapshot_testfile, NULL), EKVS_OK)
-      
+      SHOULD_EQUAL(ekvs_open(&teststore, snapshot_testfile, NULL), EKVS_OK)
       SHOULD_EQUAL(ekvs_get(teststore, "key1", &get_ptr, &get_sz), EKVS_OK)
       SHOULD_MATCH(get_ptr, "value1")
       SHOULD_EQUAL(ekvs_get(teststore, "key2", &get_ptr, &get_sz), EKVS_OK)
       SHOULD_MATCH(get_ptr, "value2")
       SHOULD_EQUAL(ekvs_get(teststore, "key3", &get_ptr, &get_sz), EKVS_OK)
       SHOULD_MATCH(get_ptr, "value3")
-      ekvs_close(teststore);*/
+      ekvs_close(teststore);
    END_IT
 END_DESCRIBE
